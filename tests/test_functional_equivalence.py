@@ -37,7 +37,8 @@ from google.adk.runners import Runner
 from google.adk.sessions import DatabaseSessionService
 from google.genai import types
 
-from adk_datastore_session.datastore_session_service import DatastoreSessionService
+from adk_datastore_session.datastore_session_service import \
+    DatastoreSessionService
 
 load_dotenv()
 
@@ -73,7 +74,7 @@ async def test_functional_equivalence():
 
     # 1. Instantiate both session services.
     db_service = DatabaseSessionService(db_url=DB_URL)
-    ds_service = DatastoreSessionService(project=GCP_PROJECT_ID, database="adktest2")
+    ds_service = DatastoreSessionService(project=GCP_PROJECT_ID, database="adktest")
 
     agent = Agent(
         model="gemini-2.5-flash", name="TestAgent", instruction=AGENT_INSTRUCTION
@@ -124,7 +125,7 @@ async def test_functional_equivalence():
 
         from google.cloud import datastore
 
-        ds_client = datastore.Client(project=GCP_PROJECT_ID, database="adktest2")
+        ds_client = datastore.Client(project=GCP_PROJECT_ID, database="adktest")
         user_key = ds_client.key("ADKStorageUserState", user_id, parent=ds_client.key("ADKStorageAppState", APP_NAME))
         ds_client.delete(user_key)
         print(f"Deleted datastore entities for user {user_id}")

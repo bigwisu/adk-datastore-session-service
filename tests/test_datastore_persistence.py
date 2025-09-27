@@ -36,9 +36,7 @@ from google.adk.runners import Runner
 from google.genai import types
 
 from adk_datastore_session.datastore_session_service import (
-    DatastoreSessionService,
-    DataStoreKeys,
-)
+    DataStoreKeys, DatastoreSessionService)
 
 load_dotenv()
 
@@ -60,7 +58,7 @@ async def test_datastore_persistence():
     print("--- STEP 1: Storing the secret code in Datastore ---")
     try:
         # Instantiate a new runner and service pointing to Datastore.
-        session_service_1 = DatastoreSessionService(project=GCP_PROJECT_ID, database="adktest2")
+        session_service_1 = DatastoreSessionService(project=GCP_PROJECT_ID, database="adktest")
         agent_1 = Agent(
             model="gemini-2.5-flash", name="TestAgent", instruction=AGENT_INSTRUCTION
         )
@@ -93,7 +91,7 @@ async def test_datastore_persistence():
     print("\n--- STEP 2: Resuming session and recalling the secret ---")
     try:
         # Instantiate a new runner and service to simulate resuming the conversation.
-        session_service_2 = DatastoreSessionService(project=GCP_PROJECT_ID, database="adktest2")
+        session_service_2 = DatastoreSessionService(project=GCP_PROJECT_ID, database="adktest")
         agent_2 = Agent(
             model="gemini-2.5-flash", name="TestAgent", instruction=AGENT_INSTRUCTION
         )

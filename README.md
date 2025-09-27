@@ -119,7 +119,7 @@ async def main():
     try:
         # --- STEP 1: Create a session and tell the agent the secret code ---
         print(f"--- STEP 1: Storing a secret code in session {session_id} ---")
-        session_service_1 = DatastoreSessionService(project=project_id, database="adktest2")
+        session_service_1 = DatastoreSessionService(project=project_id, database="adktest")
         runner_1 = Runner(agent=agent, app_name=app_name, session_service=session_service_1)
 
         await runner_1.session_service.create_session(
@@ -134,7 +134,7 @@ async def main():
 
         # --- STEP 2: Resume the session and ask for the secret code ---
         print("\n--- STEP 2: Resuming session and recalling the secret ---")
-        session_service_2 = DatastoreSessionService(project=project_id, database="adktest2")
+        session_service_2 = DatastoreSessionService(project=project_id, database="adktest")
         runner_2 = Runner(agent=agent, app_name=app_name, session_service=session_service_2)
 
         print("User says: 'what is the secret code?'")
@@ -158,7 +158,7 @@ async def main():
     finally:
         # --- CLEANUP ---
         print(f"\nCleaning up by deleting session: {session_id}")
-        cleanup_service = DatastoreSessionService(project=project_id, database="adktest2")
+        cleanup_service = DatastoreSessionService(project=project_id, database="adktest")
         await cleanup_service.delete_session(
             app_name=app_name, user_id=user_id, session_id=session_id
         )
