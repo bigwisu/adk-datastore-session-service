@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adk-datastore-session"
+version = "0.1.0"
+authors = [
+  { name="pentium10"},
+]
+description = "An ADK session service using Google Cloud Datastore."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "google-cloud-datastore",
+    "google-adk",
+    "requests",
+    "google-api-core",
+    "google-auth"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/pentium10/adk-datastore-session-service"
+"Bug Tracker" = "https://github.com/pentium10/adk-datastore-session-service/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio"
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
