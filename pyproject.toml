@@ -20,9 +20,7 @@ classifiers = [
 dependencies = [
     "google-cloud-datastore~=2.21.0",
     "google-adk~=1.15.1",
-    "requests~=2.32.5",
-    "google-api-core~=2.25.1",
-    "google-auth~=2.40.3"
+    "requests~=2.32.5"
 ]
 
 [project.urls]
