@@ -100,7 +100,7 @@ class FirestoreSessionService(BaseSessionService):
         else:
             app = firebase_admin.get_app()
 
-        self.db = firestore.client(app=app, database=database)
+        self.db = firestore.client(app=app)
         self.paths = FirestorePaths(self.db, collection_names)
         self.strip_large_content = strip_large_content
 
