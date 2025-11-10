@@ -28,7 +28,7 @@ from google.adk.agents import Agent
 from google.adk.runners import Runner
 from google.genai import types
 from dotenv import load_dotenv
-from adk_datastore_session.firestore_session_service import \
+from adk_firestore_session.firestore_session_service import \
     FirestoreSessionService
 
 

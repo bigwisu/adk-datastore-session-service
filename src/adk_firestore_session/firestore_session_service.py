@@ -135,7 +135,7 @@ class FirestoreSessionService(BaseSessionService):
                 app_current_state = app_doc.to_dict().get("state", {})
                 if app_state_delta:
                     transaction.update(app_ref, {"state": firestore.firestore.SERVER_TIMESTAMP, **app_state_delta})
-                    app_current_state.update(app_state_delta)
+                    # No need to update local state, it's not used further in this transaction
 
             if not user_doc.exists:
                 transaction.set(user_ref, {"state": user_state_delta})
@@ -144,7 +144,7 @@ class FirestoreSessionService(BaseSessionService):
                 user_current_state = user_doc.to_dict().get("state", {})
                 if user_state_delta:
                     transaction.update(user_ref, {"state": firestore.firestore.SERVER_TIMESTAMP, **user_state_delta})
-                    user_current_state.update(user_state_delta)
+                    # No need to update local state, it's not used further in this transaction
 
             session_data = {
                 "app_name": app_name,
@@ -155,6 +155,10 @@ class FirestoreSessionService(BaseSessionService):
                 "update_time": firestore.firestore.SERVER_TIMESTAMP,
             }
             transaction.set(session_ref, session_data)
+
+            # Re-fetch the states to build the final merged state
+            app_current_state = (await app_ref.get(transaction=transaction)).to_dict().get("state", {})
+            user_current_state = (await user_ref.get(transaction=transaction)).to_dict().get("state", {})
 
             merged_state = _merge_state(app_current_state, user_current_state, session_state)
 

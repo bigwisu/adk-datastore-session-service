@@ -1,17 +1,14 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2025 pentium10
-#
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -20,11 +17,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""Tests the functional equivalence between DatabaseSessionService and FirestoreSessionService.
+"""Tests the persistence capabilities of the FirestoreSessionService.
 
-This test verifies that both services can be used to have a conversation with an agent
-and that the agent can recall information from the session history, regardless of the
-underlying storage mechanism.
+This test verifies that a conversation history can be successfully persisted to
+Google Cloud Firestore and resumed in a subsequent session.
 """
 
 import os
@@ -33,18 +29,16 @@ import uuid
 from dotenv import load_dotenv
 from google.adk.agents import Agent
 from google.adk.runners import Runner
-from google.adk.sessions import DatabaseSessionService
 from google.genai import types
 
-from adk_datastore_session.firestore_session_service import \
+from adk_firestore_session.firestore_session_service import \
     FirestoreSessionService
 
 load_dotenv()
 
 # --- Test Configuration ---
 GCP_PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT")
-DB_URL = "sqlite:///test_equivalence.db"
-APP_NAME = "equivalence-test-app"
+APP_NAME = "firestore-persistence-test"
 AGENT_INSTRUCTION = "You are a helpful assistant. Your primary goal is to remember all information given to you and recall it when asked. When asked for specific pieces of information like a name, a code, or JSON data, you must repeat it back exactly as it was given to you."
 
 
@@ -64,69 +58,58 @@ async def run_turn(
     return final_response
 
 
-async def test_functional_equivalence(event_loop):
-    """Runs a side-by-side validation of the two session services."""
+async def test_firestore_persistence():
+    """Runs a two-part test to verify conversation history is persisted in Firestore."""
     if not GCP_PROJECT_ID:
         raise ValueError("GOOGLE_CLOUD_PROJECT environment variable not set.")
 
     user_id = f"test-user-{uuid.uuid4()!s}"
     session_id = str(uuid.uuid4())
     secret_code = f"SECRET_{uuid.uuid4()!s}"
-
-    # 1. Instantiate both session services.
-    db_service = DatabaseSessionService(db_url=DB_URL)
-    fs_service = FirestoreSessionService(project=GCP_PROJECT_ID)
+    fs_service = None
 
     agent = Agent(
         model="gemini-2.5-flash", name="TestAgent", instruction=AGENT_INSTRUCTION
     )
 
-    db_runner = Runner(agent=agent, app_name=APP_NAME, session_service=db_service)
-    fs_runner = Runner(agent=agent, app_name=APP_NAME, session_service=fs_service)
-    runners = {"Database": db_runner, "Firestore": fs_runner}
-
     try:
-        # 2. Create sessions for both services.
-        print("--- Creating sessions for both services ---")
-        for runner in runners.values():
-            await runner.session_service.create_session(
-                app_name=APP_NAME, user_id=user_id, session_id=session_id
-            )
+        # --- STEP 1: Create a session and provide a secret code. ---
+        print("--- STEP 1: Storing the secret code in Firestore ---")
+        fs_service = FirestoreSessionService(project=GCP_PROJECT_ID)
+        runner_1 = Runner(agent=agent, app_name=APP_NAME, session_service=fs_service)
 
-        # 3. Run a conversation to provide the secret code.
-        print("\n--- Storing secret code with both services ---")
+        # Create the session.
+        await runner_1.session_service.create_session(
+            app_name=APP_NAME, user_id=user_id, session_id=session_id
+        )
+
+        # Run a conversation to provide the secret code.
         prompt = f"My secret code is {secret_code}."
-        for name, runner in runners.items():
-            print(f"\n-- Running for {name} --")
-            await run_turn(runner, user_id, session_id, prompt)
+        await run_turn(runner_1, user_id, session_id, prompt)
+        print("Step 1 complete. Agent has processed the secret.")
 
-        # 4. In a new "session", ask for the secret code and verify.
-        print("\n--- Recalling secret code with both services ---")
+        # --- STEP 2: Resume the session and ask for the secret code. ---
+        print("\n--- STEP 2: Resuming session and recalling the secret ---")
+        # Use a new runner to ensure history is loaded from persistence
+        fs_service_2 = FirestoreSessionService(project=GCP_PROJECT_ID)
+        runner_2 = Runner(
+            agent=agent, app_name=APP_NAME, session_service=fs_service_2
+        )
+
         recall_prompt = "What is my secret code?"
-        for name, runner in runners.items():
-            print(f"\n-- Running for {name} --")
-            # Use a new runner to ensure history is loaded from persistence
-            new_runner = Runner(
-                agent=agent, app_name=APP_NAME, session_service=runner.session_service
-            )
-            response = await run_turn(
-                new_runner, user_id, session_id, recall_prompt
-            )
-            assert (
-                secret_code in response
-            ), f"Agent using {name} failed to recall the secret code."
-            print(f"SUCCESS: Agent using {name} correctly recalled the secret code.")
+        response = await run_turn(runner_2, user_id, session_id, recall_prompt)
+
+        assert (
+            secret_code in response
+        ), f"Agent failed to recall the secret code."
 
         print(
-            "\nVALIDATION SUCCEEDED: Both services can persist and recall information."
+            "\nSUCCESS: Agent correctly recalled the secret code from the Firestore session."
         )
 
     finally:
-        # 5. Clean up resources.
+        # --- CLEANUP: Delete the test session from Firestore. ---
         print("\n--- Cleaning up resources ---")
-        if os.path.exists(DB_URL.replace("sqlite:///", "")):
-            os.remove(DB_URL.replace("sqlite:///", ""))
-            print("Removed test database.")
-        
-        await fs_service.delete_session(APP_NAME, user_id, session_id)
-        print(f"Deleted firestore entities for session {session_id}")
+        if fs_service:
+            await fs_service.delete_session(APP_NAME, user_id, session_id)
+            print(f"Deleted firestore entities for session {session_id}")

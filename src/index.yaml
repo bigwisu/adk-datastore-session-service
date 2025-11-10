@@ -1,6 +1,0 @@
-indexes:
-- kind: ADKStorageEvent
-  ancestor: yes
-  properties:
-  - name: timestamp
-    direction: desc

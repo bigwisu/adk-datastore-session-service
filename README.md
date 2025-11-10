@@ -1,18 +1,12 @@
-# ADK Cloud Session Services (Datastore & Firestore)
+# ADK Firestore Session Service
 
-A Python library that provides community extensions to the ADK (Agent Development Kit) for session persistence using Google Cloud services. It includes:
-
-*   `DatastoreSessionService`: Stores session data in Google Cloud Datastore.
-*   `FirestoreSessionService`: Stores session data in Google Cloud Firestore (in Datastore Mode).
-
-**Recommendation:** For new projects, we recommend using the `FirestoreSessionService` due to its more flexible data model, powerful querying capabilities, and simpler setup.
+A Python library that provides a community extension to the ADK (Agent Development Kit) for session persistence using Google Cloud Firestore (in Datastore Mode).
 
 ## Key Features
 
-*   **Google Cloud Integration:** Choose between Datastore or Firestore for persistent session storage.
+*   **Firestore Integration:** Uses Google Cloud Firestore (in Datastore Mode) for persistent session storage.
 *   **Seamless ADK Extension:** Integrates directly with the ADK `BaseSessionService`.
 *   **Storage Optimization:** Automatically compresses event content and can strip large binary data to stay within the 1MB entity/document size limit.
-*   **Automatic Index Management:** The `DatastoreSessionService` attempts to automatically create required indexes.
 
 ## Installation
 
