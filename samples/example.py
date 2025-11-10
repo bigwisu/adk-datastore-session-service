@@ -27,9 +27,9 @@ import uuid
 from google.adk.agents import Agent
 from google.adk.runners import Runner
 from google.genai import types
-
-from adk_datastore_session.datastore_session_service import \
-    DatastoreSessionService
+from dotenv import load_dotenv
+from adk_datastore_session.firestore_session_service import \
+    FirestoreSessionService
 
 
 async def main():
@@ -56,7 +56,7 @@ async def main():
     try:
         # --- STEP 1: Create a session and tell the agent the secret code ---
         print(f"--- STEP 1: Storing a secret code in session {session_id} ---")
-        session_service_1 = DatastoreSessionService(project=project_id, database="adktest")
+        session_service_1 = FirestoreSessionService(project=project_id)
         runner_1 = Runner(agent=agent, app_name=app_name, session_service=session_service_1)
 
         await runner_1.session_service.create_session(
@@ -72,7 +72,7 @@ async def main():
         # --- STEP 2: Resume the session and ask for the secret code ---
         print("\n--- STEP 2: Resuming session and recalling the secret ---")
         # Instantiate a new runner and service to simulate resuming the conversation.
-        session_service_2 = DatastoreSessionService(project=project_id, database="adktest")
+        session_service_2 = FirestoreSessionService(project=project_id)
         runner_2 = Runner(agent=agent, app_name=app_name, session_service=session_service_2)
 
         print("User says: 'what is the secret code?'")
@@ -86,22 +86,25 @@ async def main():
         
         print(f"Agent responded: '{final_response_text}'")
         
-        assert secret_code in final_response_text, f"Agent response did not contain the secret code '{secret_code}'"
+        assert secret_code in final_response_text, (
+            f"Agent response did not contain the secret code '{secret_code}'"
+        )
         
-        print("\nSUCCESS: Agent correctly recalled the secret code from the Datastore session.")
+        print("\nSUCCESS: Agent correctly recalled the secret code from the Firestore session.")
 
     except Exception as e:
         print(f"An error occurred: {e}")
 
     finally:
         # --- CLEANUP ---
-        print(f"\nCleaning up by deleting session: {session_id}")
-        cleanup_service = DatastoreSessionService(project=project_id, database="adktest")
-        await cleanup_service.delete_session(
-            app_name=app_name, user_id=user_id, session_id=session_id
-        )
-        print("Cleanup complete.")
+        if 'runner_1' in locals():
+            print(f"\nCleaning up by deleting session: {session_id}")
+            await runner_1.session_service.delete_session(
+                app_name=app_name, user_id=user_id, session_id=session_id
+            )
+            print("Cleanup complete.")
 
 
 if __name__ == "__main__":
+    load_dotenv()
     asyncio.run(main())

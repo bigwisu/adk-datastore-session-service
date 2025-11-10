@@ -20,14 +20,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""Tests the functional equivalence between DatabaseSessionService and DatastoreSessionService.
+"""Tests the functional equivalence between DatabaseSessionService and FirestoreSessionService.
 
 This test verifies that both services can be used to have a conversation with an agent
 and that the agent can recall information from the session history, regardless of the
 underlying storage mechanism.
 """
 
-import asyncio
 import os
 import uuid
 
@@ -37,8 +36,8 @@ from google.adk.runners import Runner
 from google.adk.sessions import DatabaseSessionService
 from google.genai import types
 
-from adk_datastore_session.datastore_session_service import \
-    DatastoreSessionService
+from adk_datastore_session.firestore_session_service import \
+    FirestoreSessionService
 
 load_dotenv()
 
@@ -49,7 +48,9 @@ APP_NAME = "equivalence-test-app"
 AGENT_INSTRUCTION = "You are a helpful assistant. Your primary goal is to remember all information given to you and recall it when asked. When asked for specific pieces of information like a name, a code, or JSON data, you must repeat it back exactly as it was given to you."
 
 
-async def run_turn(runner: Runner, user_id: str, session_id: str, prompt: str) -> str:
+async def run_turn(
+    runner: Runner, user_id: str, session_id: str, prompt: str
+) -> str:
     """Helper function to run a single turn of conversation and return the agent's response."""
     print(f">>> User: {prompt}")
     user_message = types.Content(role="user", parts=[types.Part(text=prompt)])
@@ -63,7 +64,7 @@ async def run_turn(runner: Runner, user_id: str, session_id: str, prompt: str) -
     return final_response
 
 
-async def test_functional_equivalence():
+async def test_functional_equivalence(event_loop):
     """Runs a side-by-side validation of the two session services."""
     if not GCP_PROJECT_ID:
         raise ValueError("GOOGLE_CLOUD_PROJECT environment variable not set.")
@@ -74,15 +75,15 @@ async def test_functional_equivalence():
 
     # 1. Instantiate both session services.
     db_service = DatabaseSessionService(db_url=DB_URL)
-    ds_service = DatastoreSessionService(project=GCP_PROJECT_ID, database="adktest")
+    fs_service = FirestoreSessionService(project=GCP_PROJECT_ID)
 
     agent = Agent(
         model="gemini-2.5-flash", name="TestAgent", instruction=AGENT_INSTRUCTION
     )
 
     db_runner = Runner(agent=agent, app_name=APP_NAME, session_service=db_service)
-    ds_runner = Runner(agent=agent, app_name=APP_NAME, session_service=ds_service)
-    runners = {"Database": db_runner, "Datastore": ds_runner}
+    fs_runner = Runner(agent=agent, app_name=APP_NAME, session_service=fs_service)
+    runners = {"Database": db_runner, "Firestore": fs_runner}
 
     try:
         # 2. Create sessions for both services.
@@ -105,31 +106,27 @@ async def test_functional_equivalence():
         for name, runner in runners.items():
             print(f"\n-- Running for {name} --")
             # Use a new runner to ensure history is loaded from persistence
-            new_runner = Runner(agent=agent, app_name=APP_NAME, session_service=runner.session_service)
-            response = await run_turn(new_runner, user_id, session_id, recall_prompt)
-            assert secret_code in response, f"Agent using {name} failed to recall the secret code."
+            new_runner = Runner(
+                agent=agent, app_name=APP_NAME, session_service=runner.session_service
+            )
+            response = await run_turn(
+                new_runner, user_id, session_id, recall_prompt
+            )
+            assert (
+                secret_code in response
+            ), f"Agent using {name} failed to recall the secret code."
             print(f"SUCCESS: Agent using {name} correctly recalled the secret code.")
 
-        print("\nVALIDATION SUCCEEDED: Both services can persist and recall information.")
+        print(
+            "\nVALIDATION SUCCEEDED: Both services can persist and recall information."
+        )
 
     finally:
         # 5. Clean up resources.
         print("\n--- Cleaning up resources ---")
-        db_file = DB_URL.replace("sqlite:///", "")
-        try:
-            if os.path.exists(db_file):
-                os.remove(db_file)
-                print(f"Removed test database: {db_file}")
-        except PermissionError:
-            print(f"Warning: Could not remove test database {db_file} because it is in use.")
-
-        from google.cloud import datastore
-
-        ds_client = datastore.Client(project=GCP_PROJECT_ID, database="adktest")
-        user_key = ds_client.key("ADKStorageUserState", user_id, parent=ds_client.key("ADKStorageAppState", APP_NAME))
-        ds_client.delete(user_key)
-        print(f"Deleted datastore entities for user {user_id}")
-
-
-if __name__ == "__main__":
-    asyncio.run(test_functional_equivalence())
+        if os.path.exists(DB_URL.replace("sqlite:///", "")):
+            os.remove(DB_URL.replace("sqlite:///", ""))
+            print("Removed test database.")
+        
+        await fs_service.delete_session(APP_NAME, user_id, session_id)
+        print(f"Deleted firestore entities for session {session_id}")

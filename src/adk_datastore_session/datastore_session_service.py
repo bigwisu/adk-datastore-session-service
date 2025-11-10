@@ -137,7 +137,7 @@ class DatastoreSessionService(BaseSessionService):
     def __init__(
         self,
         project: str,
-        database: Optional[str] = None,
+        database: Optional[str] = "(default)",
         key_names: Optional[DatastoreKeyNames] = None,
         strip_large_content: bool = True,
         **kwargs: Any,

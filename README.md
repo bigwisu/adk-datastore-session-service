@@ -1,18 +1,23 @@
-# ADK Datastore Session Service
+# ADK Cloud Session Services (Datastore & Firestore)
 
-A Python library that provides a `DatastoreSessionService` as a community extension to the ADK ([Agent Development Kit](https://github.com/google/adk-python/)) package. It allows for the storage of session data in [Google Cloud Datastore](https://console.cloud.google.com/datastore).
+A Python library that provides community extensions to the ADK (Agent Development Kit) for session persistence using Google Cloud services. It includes:
+
+*   `DatastoreSessionService`: Stores session data in Google Cloud Datastore.
+*   `FirestoreSessionService`: Stores session data in Google Cloud Firestore (in Datastore Mode).
+
+**Recommendation:** For new projects, we recommend using the `FirestoreSessionService` due to its more flexible data model, powerful querying capabilities, and simpler setup.
 
 ## Key Features
 
-*   **Google Cloud Datastore Integration:** Uses Google Cloud Datastore for persistent session storage.
-*   **ADK Extension:** Integrates seamlessly with the ADK `BaseSessionService`.
-*   **Automatic Index Management:** Attempts to automatically create the required Datastore indexes on first use.
-*   **Storage Optimization:** Automatically compresses event content and can strip large binary data to stay within Datastore's 1MB entity size limit.
+*   **Google Cloud Integration:** Choose between Datastore or Firestore for persistent session storage.
+*   **Seamless ADK Extension:** Integrates directly with the ADK `BaseSessionService`.
+*   **Storage Optimization:** Automatically compresses event content and can strip large binary data to stay within the 1MB entity/document size limit.
+*   **Automatic Index Management:** The `DatastoreSessionService` attempts to automatically create required indexes.
 
 ## Installation
 
 ```bash
-pip install adk-datastore-session
+pip install adk-cloud-session-service
 ```
 
 Alternative pip:
@@ -44,7 +49,7 @@ project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
 
 session_service = DatastoreSessionService(
     project=project_id,                 # Required: Your Google Cloud project ID.
-    database="adktest",                 # Optional: The Datastore database ID. Defaults to the default database.
+    database="(default)",               # Optional: The Datastore database ID. Defaults to "(default)".
     key_names=DatastoreKeyNames(...),   # Optional: Customize the entity kind names used in Datastore.
     strip_large_content=True            # Optional: If True, replaces large inline data (like images) with a 1x1 transparent PNG placeholder to prevent errors and avoid disrupting web UIs.
 )
@@ -119,7 +124,7 @@ async def main():
     try:
         # --- STEP 1: Create a session and tell the agent the secret code ---
         print(f"--- STEP 1: Storing a secret code in session {session_id} ---")
-        session_service_1 = DatastoreSessionService(project=project_id, database="adktest")
+        session_service_1 = DatastoreSessionService(project=project_id)
         runner_1 = Runner(agent=agent, app_name=app_name, session_service=session_service_1)
 
         await runner_1.session_service.create_session(
@@ -134,7 +139,7 @@ async def main():
 
         # --- STEP 2: Resume the session and ask for the secret code ---
         print("\n--- STEP 2: Resuming session and recalling the secret ---")
-        session_service_2 = DatastoreSessionService(project=project_id, database="adktest")
+        session_service_2 = DatastoreSessionService(project=project_id)
         runner_2 = Runner(agent=agent, app_name=app_name, session_service=session_service_2)
 
         print("User says: 'what is the secret code?'")
@@ -158,8 +163,7 @@ async def main():
     finally:
         # --- CLEANUP ---
         print(f"\nCleaning up by deleting session: {session_id}")
-        cleanup_service = DatastoreSessionService(project=project_id, database="adktest")
-        await cleanup_service.delete_session(
+        await session_service_1.delete_session(
             app_name=app_name, user_id=user_id, session_id=session_id
         )
         print("Cleanup complete.")
